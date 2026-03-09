@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>폐기불량 관리시스템</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+  <!-- 시작 화면 -->
+  <div id="startScreen" class="screen active">
+    <div class="start-container">
+      <img src="{{ url_for('static', filename='img/logo_JE.svg') }}" alt="JE Logo" class="logo-main">
+      <h1 class="main-title">폐기불량 관리시스템</h1>
+      <button id="startBtn" class="btn btn-start" onclick="startInput()">시 작</button>
+      <div class="admin-link">
+        <a href="javascript:void(0)" onclick="showAdminLogin()">관리자 모드</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- 입력 화면 -->
+  <div id="inputScreen" class="screen">
+    <div class="header">
+      <div class="header-title">
+        <img src="{{ url_for('static', filename='img/logo_JE.svg') }}" alt="JE Logo" class="logo-header">
+        <h2>폐기불량 입력</h2>
+      </div>
+      <div class="header-buttons">
+        <button class="btn btn-prev-header" id="headerPrevBtn" onclick="headerPrevStep()" style="display:none;">이전</button>
+        <button class="btn btn-back" onclick="goToStart()">처음으로</button>
+      </div>
+    </div>
+
+    <div class="form-container">
+      <!-- 진행 단계 표시 -->
+      <div class="progress-bar">
+        <div class="progress-step" data-step="1"><span class="step-icon">1</span>Part</div>
+        <div class="progress-step" data-step="2"><span class="step-icon">2</span>부서</div>
+        <div class="progress-step" data-step="3"><span class="step-icon">3</span>폐기자</div>
+        <div class="progress-step" data-step="4"><span class="step-icon">4</span>공정</div>
+        <div class="progress-step" data-step="5"><span class="step-icon">5</span>폐기입력</div>
+      </div>
+
+      <!-- Step 1: Part 선택 -->
+      <div id="step1" class="step-container active">
+        <h3>Part 선택 <span class="step-desc">폐기품이 생산1 / 생산2 중 어느 소속 제품인지 선택하세요</span></h3>
+        <div class="button-grid">
+          <button class="btn btn-select" onclick="selectPart('1Part')">1Part</button>
+          <button class="btn btn-select" onclick="selectPart('2Part')">2Part</button>
+        </div>
+      </div>
+
+      <!-- Step 2: 부서 선택 -->
+      <div id="step2" class="step-container">
+        <h3>부서 선택 <span class="step-desc">폐기하는 사람의 소속팀을 선택하세요</span></h3>
+        <div id="departmentList" class="button-grid"></div>
+        <button class="btn btn-add-small" onclick="showAddModal('Depart', '부서')">+ 부서 추가</button>
+      </div>
+
+      <!-- Step 3: 폐기자 선택 -->
+      <div id="step3" class="step-container">
+        <h3>폐기자 입력 <span class="step-desc">이름을 입력하거나 아래에서 선택하세요</span></h3>
+        <div class="person-input-container">
+          <input type="text" id="personInput" class="person-input" placeholder="이름 입력..." oninput="filterPersons()" onkeyup="if(event.key==='Enter') confirmPersonInput()">
+          <button class="btn btn-person-confirm" onclick="confirmPersonInput()">확인</button>
+        </div>
+        <div class="person-history-label">최근 사용</div>
+        <div id="personList" class="button-grid"></div>
+      </div>
+
+      <!-- Step 4: 공정 선택 -->
+      <div id="step4" class="step-container">
+        <h3>공정 선택 <span class="step-desc-large">폐기품이 발생한 공정을 선택하세요</span></h3>
+        <div id="processList" class="button-grid"></div>
+        <button class="btn btn-add-small" onclick="showAddModal('Process', '공정')">+ 공정 추가</button>
+      </div>
+
+      <!-- Step 5: 폐기 항목 입력 -->
+      <div id="step5" class="step-container">
+        <h3>폐기 항목 입력 <span class="step-desc">하단의 표에 등록 상태를 확인 후 전체저장을 누르세요</span></h3>
+
+        <!-- 선택 정보 요약 -->
+        <div class="selection-summary" id="selectionSummary"></div>
+
+        <!-- 입력된 항목 요약 -->
+        <div class="selected-entries-summary">
+          <h4>입력된 항목</h4>
+          <span class="entries-count" id="entriesCount">0</span>건
+        </div>
+
+        <!-- 새 항목 추가 영역 -->
+        <div class="add-entry-section">
+          <h4>새 항목 추가</h4>
+          <div class="add-entry-form">
+            <div class="form-group">
+              <label>설비명 <span style="font-size:12px; color:#7f8c8d;">(선택)</span></label>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <select id="newMachine" class="form-input" style="flex:1;">
+                  <option value="">선택 안함</option>
+                </select>
+                <button class="btn btn-add-small" onclick="showAddModal('machine', '설비')" style="margin:0; white-space:nowrap;">+ 추가</button>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>폐기사유 *</label>
+              <button type="button" class="reason-select-btn" id="newReasonBtn" onclick="showReasonSelector()">선택</button>
+            </div>
+            <div class="form-group" id="remarkContainer" style="display:none;">
+              <label>비고 (기타사유) *</label>
+              <input type="text" id="newRemark" class="form-input" placeholder="기타 사유 입력...">
+            </div>
+            <div class="form-group tmno-group">
+              <label>TM-NO 검색 <span style="font-size:12px; color:#7f8c8d;">(선택)</span></label>
+              <div class="tmno-search-container">
+                <input type="text" id="newTmnoSearch" class="search-input" placeholder="TM-NO 입력..." oninput="searchNewTMNO()">
+                <div class="tmno-dropdown" id="tmnoDropdown"></div>
+              </div>
+            </div>
+            <div class="form-group">
+              <label>품명</label>
+              <input type="text" id="newProductName" class="form-input" readonly>
+            </div>
+            <div class="form-group">
+              <label>수량</label>
+              <input type="text" id="newQuantity" class="form-input text-center" readonly onclick="showNumpad('newQuantity')">
+            </div>
+            <div class="form-group">
+              <label>중량(kg)</label>
+              <input type="text" id="newWeight" class="form-input text-center" readonly onclick="showNumpad('newWeight')">
+            </div>
+          </div>
+          <input type="hidden" id="newTmno">
+          <input type="hidden" id="newUnitWeight">
+          <input type="hidden" id="newReason">
+          <button class="btn-add-entry" onclick="addEntryToTable()">+ 항목 추가</button>
+        </div>
+
+        <div class="step-buttons">
+          <button class="btn btn-save" onclick="confirmSave()">전체 저장</button>
+        </div>
+
+        <!-- 복수 입력 테이블 (버튼 밑에 배치) -->
+        <div class="entry-table-container" style="margin-top:20px;">
+          <table class="entry-table" id="entryTable">
+            <thead>
+              <tr>
+                <th style="width:12%">설비명</th>
+                <th style="width:13%">폐기사유</th>
+                <th style="width:12%">비고</th>
+                <th style="width:15%">TM-NO</th>
+                <th style="width:13%">품명</th>
+                <th style="width:8%">수량</th>
+                <th style="width:11%">중량(kg)</th>
+                <th style="width:10%">삭제</th>
+              </tr>
+            </thead>
+            <tbody id="entryTableBody">
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관리자 로그인 모달 -->
+  <div id="adminLoginModal" class="modal">
+    <div class="modal-content">
+      <h3>관리자 로그인</h3>
+      <input type="password" id="adminPassword" class="modal-input" placeholder="비밀번호 입력">
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('adminLoginModal')">취소</button>
+        <button class="btn btn-confirm" onclick="adminLogin()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 관리자 화면 -->
+  <div id="adminScreen" class="screen">
+    <div class="header">
+      <div class="header-title">
+        <img src="{{ url_for('static', filename='img/logo_JE.svg') }}" alt="JE Logo" class="logo-header">
+        <h2>관리자 모드</h2>
+      </div>
+      <button class="btn btn-back" onclick="goToStart()">처음으로</button>
+    </div>
+    <div class="admin-container">
+      <div class="admin-menu">
+        <button class="btn btn-admin" onclick="showMasterDataManager('Depart', this)">부서 관리</button>
+        <button class="btn btn-admin" onclick="showMasterDataManager('Process', this)">공정 관리</button>
+        <button class="btn btn-admin" onclick="showMasterDataManager('machine', this)">설비 관리</button>
+        <button class="btn btn-admin" onclick="showMasterDataManager('person', this)">폐기자 관리</button>
+        <button class="btn btn-admin" onclick="showMasterDataManager('1Part_TMNO', this)">1Part TM-NO 관리</button>
+        <button class="btn btn-admin" onclick="showMasterDataManager('2Part_TMNO', this)">2Part TM-NO 관리</button>
+        <button class="btn btn-admin" onclick="showMasterDataManager('scrap_name', this)">폐기사유 관리</button>
+        <button class="btn btn-admin" onclick="showScrapRecords(this)">폐기불량 기록 조회</button>
+        <button class="btn btn-admin btn-admin-excel" onclick="showExcelDownload(this)">Excel 다운로드</button>
+      </div>
+      <div id="adminContent" class="admin-content"></div>
+    </div>
+  </div>
+
+  <!-- 데이터 추가 모달 -->
+  <div id="addModal" class="modal">
+    <div class="modal-content">
+      <h3 id="addModalTitle">추가</h3>
+      <div id="addModalFields"></div>
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('addModal')">취소</button>
+        <button class="btn btn-confirm" onclick="addData()">추가</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 데이터 수정 모달 -->
+  <div id="editModal" class="modal">
+    <div class="modal-content modal-large">
+      <h3 class="edit-title">데이터 수정</h3>
+      <div id="editModalFields"></div>
+      <input type="hidden" id="editRowIndex">
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('editModal')">취소</button>
+        <button class="btn btn-edit-save" onclick="saveEditData()">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 숫자 패드 모달 -->
+  <div id="numpadModal" class="modal">
+    <div class="modal-content numpad-modal">
+      <h3 id="numpadTitle">숫자 입력</h3>
+      <input type="text" id="numpadDisplay" class="numpad-display" readonly>
+      <div class="numpad-grid">
+        <button class="numpad-btn" onclick="numpadInput('7')">7</button>
+        <button class="numpad-btn" onclick="numpadInput('8')">8</button>
+        <button class="numpad-btn" onclick="numpadInput('9')">9</button>
+        <button class="numpad-btn" onclick="numpadInput('4')">4</button>
+        <button class="numpad-btn" onclick="numpadInput('5')">5</button>
+        <button class="numpad-btn" onclick="numpadInput('6')">6</button>
+        <button class="numpad-btn" onclick="numpadInput('1')">1</button>
+        <button class="numpad-btn" onclick="numpadInput('2')">2</button>
+        <button class="numpad-btn" onclick="numpadInput('3')">3</button>
+        <button class="numpad-btn" onclick="numpadInput('0')">0</button>
+        <button class="numpad-btn" onclick="numpadInput('.')">.</button>
+        <button class="numpad-btn numpad-del" onclick="numpadDelete()">←</button>
+      </div>
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('numpadModal')">취소</button>
+        <button class="btn btn-clear" onclick="numpadClear()">지우기</button>
+        <button class="btn btn-confirm" onclick="numpadConfirm()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 로딩 오버레이 -->
+  <div id="loadingOverlay" class="loading-overlay">
+    <div class="loading-spinner"></div>
+    <p>처리 중...</p>
+  </div>
+
+  <!-- 알림 토스트 -->
+  <div id="toast" class="toast"></div>
+
+  <!-- 폐기사유 선택 모달 -->
+  <div id="reasonModal" class="modal">
+    <div class="modal-content modal-reason">
+      <h3>폐기사유 선택</h3>
+      <div id="reasonList"></div>
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('reasonModal')">취소</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 저장 확인 모달 -->
+  <div id="confirmModal" class="modal">
+    <div class="modal-content">
+      <h3>저장 확인</h3>
+      <div id="confirmSummary" style="margin-bottom:20px; line-height:2;"></div>
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('confirmModal')">취소</button>
+        <button class="btn btn-save" onclick="saveAllData()" style="margin:0; padding:15px 30px; font-size:20px;">저장</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 삭제 확인 모달 -->
+  <div id="deleteConfirmModal" class="modal">
+    <div class="modal-content">
+      <h3 style="color:#ff4757;">삭제 확인</h3>
+      <p style="margin-bottom:20px;">정말 삭제하시겠습니까?</p>
+      <div class="modal-buttons">
+        <button class="btn btn-cancel" onclick="closeModal('deleteConfirmModal')">취소</button>
+        <button class="btn btn-delete" id="deleteConfirmBtn">삭제</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
